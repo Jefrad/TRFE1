@@ -1,0 +1,323 @@
+---
+title: "Trabajo Final Godoy-Matus"
+author: "Vicente Godoy- Ignacio Matus"
+date: "2025-06-23"
+output: html_document
+---
+
+
+# Introducción
+
+En la última década, Chile ha experimentado transformaciones sociales y políticas profundas, marcadas por movilizaciones ciudadanas, procesos constituyentes y un creciente descontento con las instituciones tradicionales. Según el Informe de Desarrollo Humano del PNUD (2024), estos cambios se ven obstaculizados por dos factores clave: *1) relaciones disfuncionales entre élites, movimientos sociales y ciudadanía, y 2) lógicas institucionales y discursivas que inhiben la acción colectiva efectiva (PNUD, p. 230)*. *En paralelo, fenómenos como el envejecimiento poblacional y la baja fecundidad (PNUD, p. 40)* replantean el rol de las juventudes como actor crítico en la construcción democrática.
+
+Este trabajo explora la dimensión política de las juventudes chilenas (15-29 años), analizando su integración al sistema democrático a través de datos de la Décima Encuesta Nacional de Juventudes (INJUV, 2022). La pregunta central que guía nuestra investigación es: **¿Cómo se distribuye territorialmente la integración política de las juventudes en Chile?**
+
+Nuestros **objetivos** son:
+
+- Identificar donde es que se concentra la mayor y menor integración política de jóvenes en Chile
+- Explorar diferencias en los niveles de integración política entre hombres y mujeres jóvenes en Chile.
+
+Para responderlos, empleamos un **análisis descriptivo** de variables clave (participación en organizaciones, confianza en instituciones y actitudes hacia la democracia). Los hallazgos buscan aportar evidencia empírica para políticas públicas que fomenten la inclusión juvenil, especialmente en regiones con menor participación. 
+
+# Metodología 
+
+Para este trabajo hemos utilizado la base de datos proveniente de la Décima Encuesta Nacional de Juventudes (INJUV, 2022) , una herramienta metodológica validada por su riguroso diseño muestral probabilístico estratificado, lo cual garantiza representatividad nacional y regional (INJUV, 2022). De esta encuesta, seleccionamos el módulo temático N°4: “Política y procesos de integración al sistema democrático” , compuesto originalmente por las preguntas P22 a P30. 
+
+*En nuestro análisis, nos concentramos únicamente en las preguntas P22 a P29*, ya que la pregunta P30 resultó especialmente amplia y abierta , planteando desafíos metodológicos para su codificación estandarizada y su posterior articulación en variables operativas. Por lo tanto, decidimos excluir esta última pregunta con el fin de asegurar consistencia y comparabilidad en los resultados obtenidos. 
+
+Las **variables seleccionadas** para nuestro trabajo son: 
+
+**Regiones**  (agrupadas según criterios geográficos: Norte, Centro, RM y Sur),**Sexo**  (hombres y mujeres), y **Un índice de integración política** , construido a partir de las respuestas a las preguntas del módulo temático N°4. Este índice sintetiza dimensiones clave como el interés por la política, la participación en organizaciones y la confianza en instituciones democráticas.
+
+El índice de integración política se construye a partir de tres dimensiones clave: participación en organizaciones sociopolíticas (P22, P23), confianza en instituciones políticas (P25, P27) y actitud hacia la democracia (P28_1, P28_2, P29). Cada dimensión se pondera y normaliza para generar una escala compuesta entre 0 y 1, en este indice 1 es integración total, 0.5 integración moderada, y 0 integración inexistente.
+     
+
+
+# Script 
+### Paso 0 - Instalación y carga de paquetes
+Lo primero, antes de empezar es cargar las librerías que utilizaremos para nuestro trabajo, una vez hecho esto podemos comenzar con la preparación inicial.
+```{r}
+# Cargar paquetes necesarios
+if (!require(pacman)) install.packages("pacman")
+pacman::p_load(
+  tidyverse,    # Manipulación y visualización de datos
+  sjlabelled,   # Etiquetado de variables
+  scales,       # Escalas para gráficos
+  ggplot2,      # Creación de gráficos
+  sjmisc       # Funciones útiles para análisis
+)
+```
+
+### Paso 1 - El directorio de trabajo y los datos
+Una vez cargadas las librerías es importante crear el directorio donde guardemos nuestro trabajo, en el debe ir la base de datos, y los elementos necesarios para nuestro trabajo, como el libro de códigos y los posibles backups, usamos setwd para elegir el directorio y getwd para confirmar que lo hicimos bien. 
+```{r}
+setwd("C:/Users/Vicente/Desktop/R cosas/R-practicos/Trabajo Final")
+getwd()
+```
+### Paso 2 - Abrir base de datos
+Ahora para comenzar con nuestro trabajo, tenemos que cargar la base de datos con la que trabajaremos, para nuestro caso es la base de datos de la décima Encuesta Nacional de Juventudes.
+```{r}
+injuvdata <- read_data("C:/Users/Vicente/Desktop/R cosas/R-practicos/Trabajo Final/input/Jóvenes/BBDD Respuesta - Encuesta Jóvenes.dta")
+```
+### Paso 3 - Separar las Variables 
+Una vez subida la base de datos tenemos que elegir las variables que utilizaremos, para su posterior re-codificación y limpieza, tambien podemos hacer un respaldo de la base de datos para prevenir posibles desastres.
+```{r}
+Respaldo <- injuvdata 
+variables <- injuvdata %>% select(REGION, SEXO, P22,P23,P24_1,P24_2,P24_3,P24_4,P25,P26,P27,P28_1,P28_2,P29)
+```
+
+### Paso 4.1 - Recodificacion de variables (REGION)
+Para evitar posibles errores, y para preservar el orden, vamos a re-codificar las variables por separado, así garantizamos que en caso de cualquier error la corrección puede ser fácilmente realizada, partimos por la variable Región y las dividiremos en Norte, RM, y Sur, para facilitar el analisis.
+```{r}
+variables <- variables %>%
+  mutate(Regiones = case_when(
+    REGION %in% c(1,2,3,4) ~ "Norte",
+    REGION %in% c(5,6,7,8,16) ~ "Centro",
+    REGION == 13 ~ "RM",
+    TRUE ~ "Sur"
+  ))
+```
+
+### Paso 4.2 - Recodificacion de variables (SEXO)
+En paso nos enfocaremos en hacer la modificación simple en las categorías de sexo 1=Hombre, 2=Mujer, esto con la intención de que a la hora de visualizar los resultados, poder hacer divisiones por sexo, ademas de las regiones.
+```{r}
+variables <- variables %>%
+  mutate(Sexo = case_when(
+    SEXO == 1 ~ "Hombre",
+    SEXO == 2 ~ "Mujer",
+    TRUE ~ NA_character_
+  ))
+```
+
+### Paso 4.3 - Recodificacion de variables (Preguntas por la participacion politca)
+Probablemente este sea el paso más largo, dado de que tenemos que re-codificar un gran numero de variables,la recodificacion se hara por orden ascendente para mayor claridad. 
+```{r}
+# P22: Participación en organizaciones
+variables <- variables %>%
+  mutate(Participacion_Org = case_when(
+    P22 == 1 ~ 1,   # Sí
+    P22 == 2 ~ 0,   # No
+    TRUE ~ NA_real_ # Otros casos (NS/NR)
+  ))
+
+#P23: Cargo de dirigente
+variables <- variables %>%
+  mutate(Cargo_Dirigente = case_when(
+    P23 == 1 ~ 1,
+    P23 == 2 ~ 0,
+    TRUE ~ NA_real_
+  ))
+
+#P24_1 a P24_4: Movilización y voto
+variables <- variables %>%
+  mutate(
+    Movilizacion = case_when(P24_1 == 1 ~ 1, P24_1 == 2 ~ 0, TRUE ~ NA_real_),
+    Organizo_Movilizacion = case_when(P24_2 == 1 ~ 1, P24_2 == 2 ~ 0, TRUE ~ NA_real_),
+    Voto_Eleccion = case_when(P24_3 == 1 ~ 1, P24_3 == 2 ~ 0, TRUE ~ NA_real_),
+    Info_Antes_Votar = case_when(P24_4 == 1 ~ 1, P24_4 == 2 ~ 0, TRUE ~ NA_real_)
+  )
+
+#P25 y P26: Confianza en instituciones
+variables <- variables %>%
+  mutate(
+    Confianza_Congreso = case_when(
+      P25 %in% 1:2 ~ 0,    # Ninguna o poca confianza
+      P25 == 3 ~ 1,         # Alguna confianza
+      P25 %in% 4:5 ~ 2,     # Mucha o bastante confianza
+      TRUE ~ NA_real_
+    ),
+    Confianza_Partidos = case_when(
+      P26 %in% 1:2 ~ 0,
+      P26 == 3 ~ 1,
+      P26 %in% 4:5 ~ 2,
+      TRUE ~ NA_real_
+    )
+  )
+
+#P27: Satisfacción con la democracia
+variables <- variables %>%
+  mutate(Satisfaccion_Democracia = case_when(
+    P27 %in% 1:2 ~ 0,    # Baja satisfacción
+    P27 == 3 ~ 1,         # Mediana
+    P27 %in% 4:5 ~ 2,     # Alta satisfacción
+    TRUE ~ NA_real_
+  ))
+
+#P28_1 y P28_2: Acciones políticas
+variables <- variables %>%
+  mutate(
+    Votaria_Plebiscito = case_when(P28_1 == 1 ~ 1, P28_1 == 2 ~ 0, TRUE ~ NA_real_),
+    Manifestarse_Ley_Injusta = case_when(P28_2 == 1 ~ 1, P28_2 == 2 ~ 0, TRUE ~ NA_real_)
+  )
+
+#P29: Acción frente a ley injusta
+variables <- variables %>%
+  mutate(Accion_Ley_Injusta = case_when(
+    P29 == 1 ~ 0,   # No haría nada
+    P29 == 2 ~ 1,   # Me quejaría
+    P29 == 3 ~ 2,   # Protestaría
+    P29 == 4 ~ 3,   # Marcharía
+    P29 == 5 ~ 4,   # Otra acción
+    TRUE ~ NA_real_
+  ))
+```
+
+### Paso 4.4 - Normalizacion de variables 
+
+Antes de poder crear el indice, tenemos que superar el desafió de que las preguntas no son puramente binarias, así que este paso consiste en eso, hacer que todas las variables esten en una categoria binaria para facilitar la construcción del indice
+```{r}
+# Normalización de variables de integración política
+variables <- variables %>%
+  mutate(
+    # Binarias (0 = No, 1 = Sí): ya están en escala 0–1
+    Participacion_Org_norm = as.numeric(Participacion_Org),
+    Cargo_Dirigente_norm = as.numeric(Cargo_Dirigente),
+    Movilizacion_norm = as.numeric(Movilizacion),
+    Voto_Eleccion_norm = as.numeric(Voto_Eleccion),
+    Manifestarse_Ley_Injusta_norm = as.numeric(Manifestarse_Ley_Injusta),
+
+    # Variables ordinales (escala Likert 1–5): normalizar manualmente
+    Confianza_Congreso_norm = (Confianza_Congreso - min(Confianza_Congreso, na.rm = TRUE)) /
+                               (max(Confianza_Congreso, na.rm = TRUE) - min(Confianza_Congreso, na.rm = TRUE)),
+    
+    Confianza_Partidos_norm = (Confianza_Partidos - min(Confianza_Partidos, na.rm = TRUE)) /
+                              (max(Confianza_Partidos, na.rm = TRUE) - min(Confianza_Partidos, na.rm = TRUE)),
+    
+    Satisfaccion_Democracia_norm = (Satisfaccion_Democracia - min(Satisfaccion_Democracia, na.rm = TRUE)) /
+                                    (max(Satisfaccion_Democracia, na.rm = TRUE) - min(Satisfaccion_Democracia, na.rm = TRUE))
+  )
+```
+
+### Paso 4.5 - Creacion del indice  
+Ahora el sub-paso de esta re-codificación, la creación de la variable índice de integración política, para ello vamos a tomar las variables creadas en el paso 4.3 ahora ya normalizadas,los vamos a agrupar, en este indice 1 es integración total, 0.5 integración moderada, y 0 integración inexistente. 
+```{r}
+# Construcción del Índice de Integración Política
+variables <- variables %>%
+  rowwise() %>%
+  mutate(
+    Indice_Integracion = mean(c(
+      Participacion_Org_norm,
+      Cargo_Dirigente_norm,
+      Movilizacion_norm,
+      Voto_Eleccion_norm,
+      Confianza_Congreso_norm,
+      Confianza_Partidos_norm,
+      Satisfaccion_Democracia_norm,
+      Manifestarse_Ley_Injusta_norm
+    ), na.rm = TRUE)
+  ) %>%
+  ungroup()
+```
+
+
+### Paso 5 - Limpieza de datos
+En este paso eliminaremos tanto los casos perdidos, y las preguntas no respondidas, esto con la intención de evitar posibles sesgos, alteraciones en la visualización de los resultados, ya sea por un exceso de casos perdidos, o algún error con los comandos, y en el proceso creamos un backup para los datos purificados.
+```{r}
+# Eliminar filas con NA en Regiones, Sexo e Indice_Integracion
+datos_limpios <- variables %>%
+  filter(!is.na(Regiones) & !is.na(Sexo) & !is.na(Indice_Integracion))
+```
+
+### Paso 6 - Variables 2.0
+Ahora que hemos refinado nuestras variables, vamos a separar nuestros datos refinados, a una base de datos nueva, dejando la anterior como posible backup, con esto hecho podemos comenzar a graficar.
+```{r}
+# Paso 6 - Guardar datos limpios para análisis final
+datos_finales <- datos_limpios %>% select(Sexo,Regiones,Indice_Integracion)
+
+```
+
+### Paso 7.1 - Resumen por region y Sexo
+```{r}
+
+resumen_region_sexo <- datos_finales %>%
+  group_by(Regiones, Sexo) %>%
+  summarise(
+    Media = mean(Indice_Integracion, na.rm = TRUE),
+    Mediana = median(Indice_Integracion, na.rm = TRUE),
+    SD = sd(Indice_Integracion, na.rm = TRUE),
+    Min = min(Indice_Integracion, na.rm = TRUE),
+    Max = max(Indice_Integracion, na.rm = TRUE)
+  )
+
+print(resumen_region_sexo)
+```
+### Paso 7.2 - Resumen por region
+```{r}
+resumen_region <- datos_finales %>%
+  group_by(Regiones) %>%
+  summarise(
+    Media = mean(Indice_Integracion, na.rm = TRUE),
+    Mediana = median(Indice_Integracion, na.rm = TRUE),
+    SD = sd(Indice_Integracion, na.rm = TRUE),
+    Min = min(Indice_Integracion, na.rm = TRUE),
+    Max = max(Indice_Integracion, na.rm = TRUE)
+  )
+
+print(resumen_region)
+```
+### Paso 7.3 - Resumen por sexo
+```{r}
+resumen_sexo <- datos_finales %>%
+  group_by(Sexo) %>%
+  summarise(
+    Media = mean(Indice_Integracion, na.rm = TRUE),
+    Mediana = median(Indice_Integracion, na.rm = TRUE),
+    SD = sd(Indice_Integracion, na.rm = TRUE),
+    Min = min(Indice_Integracion, na.rm = TRUE),
+    Max = max(Indice_Integracion, na.rm = TRUE)
+  )
+
+print(resumen_sexo)
+```
+
+### Paso 7.4 - Histograma por Region y sexo 
+```{r}
+ggplot(datos_finales, aes(x = Indice_Integracion)) +
+  geom_histogram(binwidth = 0.1, fill = "skyblue", color = "black") +
+  facet_grid(rows = vars(Regiones), cols = vars(Sexo)) +
+  labs(title = "Distribución del Índice de Integración Política por Región y Sexo",
+       x = "Índice de Integración Política",
+       y = "Frecuencia") +
+  theme_minimal()
+```
+
+### Paso 7.5 -  Histograma por Region 
+```{r}
+ggplot(datos_finales, aes(x = Indice_Integracion)) +
+  geom_histogram(binwidth = 0.1, fill = "skyblue", color = "black") +
+  facet_wrap(~ Regiones, ncol = 2) +  # Dividir por región
+  labs(title = "Distribución del Índice de Integración Política por Región",
+       x = "Índice de Integración Política",
+       y = "Frecuencia") +
+  theme_minimal()
+```
+
+### Paso 7.6 - Integración Política por Sexo
+```{r}
+ggplot(datos_finales, aes(x = Sexo, y = Indice_Integracion)) +
+  geom_boxplot(fill = "lightblue", color = "black") +
+  labs(title = "Distribución del Índice de Integración Política por Sexo",
+       x = "Sexo",
+       y = "Índice de Integración Política") +
+  theme_minimal()
+```
+
+# Hallazgos  
+
+- Los datos arrojan que la región metropolitana es la región con mayor integración política, esto probablemente debido a su densidad población, pero también se evidencia que que el norte es la región con menor integración política, tanto el sur como el centro, presentan niveles cercanos a los de la región metropolitana.
+- El análisis por sexo revela, diferencias pequeñas,las mujeres jóvenes presentan levemente una mayor integración que los hombres, la cual se agudiza en el norte del país. 
+
+# Conclusión
+
+En conclusión, la integración política de las juventudes chilenas presenta niveles que, en promedio, se sitúan por debajo del valor de 0.5, lo cual sugiere una participación limitada y una relación distante con los elementos centrales del sistema democrático . Este hallazgo refleja una cierta desafección hacia las instituciones políticas tradicionales y una baja disposición para involucrarse activamente en espacios formales de participación ciudadana. 
+
+Además, el análisis territorial revela que el Norte del país es la región con menor nivel de integración política juvenil , lo cual plantea nuevas interrogantes sobre los factores que podrían estar influyendo en este fenómeno. Dicha tendencia podría estar relacionada con condiciones estructurales como menores oportunidades de participación, desconexión con las élites políticas regionales o nacionales, o una mayor percepción de inequidad e injusticia institucional. 
+
+Estos resultados subrayan la importancia de realizar estudios más profundos y focalizados por región , con el fin de identificar las causas detrás de estos patrones y diseñar políticas públicas más efectivas y contextualizadas . La colaboración con actores locales, como los municipios y organizaciones juveniles, será clave para construir puentes entre las juventudes y el sistema político, fomentando una participación más activa, informada y representativa. 
+
+# Bibliografía 
+
+- INJUV. (2022). Décima Encuesta Nacional de Juventudes: Diseño metodológico y resultados generales . Santiago de Chile: Instituto Nacional de la Juventud. 
+
+-  Palet, A., Alcaíno, P., Peralta, A., Moraes, K., Donoso, J., Marambio, H. A., & Impresores, O. (2024). Desarrollo humano en Chile 2024 . Programa de las Naciones Unidas para el Desarrollo. 
+     
